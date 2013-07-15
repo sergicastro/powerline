@@ -7,6 +7,7 @@ import errno
 from powerline.lib.vcs import get_branch_name as _get_branch_name, get_file_status
 
 _ref_pat = re.compile(br'ref:\s*refs/heads/(.+)')
+_sub_pat = re.compile(br'gitdir: (.+)')
 
 def branch_name_from_config_file(directory, config_file):
 	try:
@@ -19,8 +20,23 @@ def branch_name_from_config_file(directory, config_file):
 		return m.group(1).decode('utf-8', 'replace')
 	return raw[:7]
 
+def file_from_submodule(directory, config_file):
+        try:
+                with open(config_file, 'rb') as f:
+                        raw = f.read()
+        except EnvironmentError:
+                return os.path.basename(directory)
+        m = _sub_pat.match(raw)
+        if m is not None:
+                return os.path.join(m.group(1), 'HEAD').decode('utf-8', 'replace')
+        return raw[:7]
+
 def get_branch_name(base_dir):
-	head = os.path.join(base_dir, '.git', 'HEAD')
+        head = os.path.join(base_dir, '.git')
+        if os.path.isdir(head):
+            head = os.path.join(base_dir, '.git', 'HEAD')
+        else:
+            head = file_from_submodule(base_dir, head)
 	try:
 		return _get_branch_name(base_dir, head, branch_name_from_config_file)
 	except OSError as e:
